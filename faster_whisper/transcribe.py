@@ -419,13 +419,16 @@ class WhisperModel:
         all_tokens = []
         prompt_reset_since = 0
 
+        initial_prompt_tokens = []
+
         if options.initial_prompt is not None:
             if isinstance(options.initial_prompt, str):
                 initial_prompt = " " + options.initial_prompt.strip()
                 initial_prompt_tokens = tokenizer.encode(initial_prompt)
-                all_tokens.extend(initial_prompt_tokens)
+                # all_tokens.extend(initial_prompt_tokens)
             else:
-                all_tokens.extend(options.initial_prompt)
+                initial_prompt_tokens = options.initial_prompt
+                # all_tokens.extend(options.initial_prompt)
 
         last_speech_timestamp = 0.0
         while seek < content_frames:
@@ -444,6 +447,7 @@ class WhisperModel:
             previous_tokens = all_tokens[prompt_reset_since:]
             prompt = self.get_prompt(
                 tokenizer,
+                initial_prompt_tokens,
                 previous_tokens,
                 without_timestamps=options.without_timestamps,
                 prefix=options.prefix if seek == 0 else None,
@@ -769,15 +773,20 @@ class WhisperModel:
     def get_prompt(
         self,
         tokenizer: Tokenizer,
+        initial_tokens: List[int],
         previous_tokens: List[int],
         without_timestamps: bool = False,
         prefix: Optional[str] = None,
     ) -> List[int]:
         prompt = []
 
-        if previous_tokens:
-            prompt.append(tokenizer.sot_prev)
-            prompt.extend(previous_tokens[-(self.max_length // 2 - 1) :])
+        # if previous_tokens:
+        #     prompt.append(tokenizer.sot_prev)
+        #     prompt.extend(previous_tokens[-(self.max_length // 2 - 1) :])
+
+        prompt.append(tokenizer.sot_prev)
+        prompt.extend(initial_tokens)
+        prompt.extend(previous_tokens[-(self.max_length // 2 - 1 - len(initial_tokens)) :])
 
         prompt.extend(tokenizer.sot_sequence)
 
@@ -792,6 +801,7 @@ class WhisperModel:
                 prompt.append(tokenizer.timestamp_begin)
             prompt.extend(prefix_tokens)
 
+        print("prev tokens prompt:", tokenizer.decode(prompt))
         return prompt
 
     def add_word_timestamps(
